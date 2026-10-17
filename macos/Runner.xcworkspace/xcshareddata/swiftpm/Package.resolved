@@ -1,0 +1,22 @@
+{
+  "pins" : [
+    {
+      "identity" : "mpv-build",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/edde746/mpv-build",
+      "state" : {
+        "revision" : "505e1616594870da97bd3c591d4809a01d11d313"
+      }
+    },
+    {
+      "identity" : "sentry-cocoa",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/getsentry/sentry-cocoa",
+      "state" : {
+        "revision" : "f196cbb98e0388381d57908f2f5a9bdc385cde68",
+        "version" : "8.58.4"
+      }
+    }
+  ],
+  "version" : 2
+}
