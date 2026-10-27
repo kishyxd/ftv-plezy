@@ -62,13 +62,24 @@ jobs:
       - name: Validate the IPA
         run: |
           set -o pipefail
-          xcrun altool --validate-app -f ftv.ipa \
+          # --type ios is REQUIRED by --validate-app; without it altool
+          # prints the usage text and exits -1027 without validating
+          # anything, which reads as a clean run if the log is not read.
+          xcrun altool --validate-app -f ftv.ipa --type ios \
             --apiKey "${{ secrets.ASC_KEY_ID }}" \
             --apiIssuer "${{ secrets.ASC_ISSUER_ID }}" 2>&1 | tee validate.log || true
           echo "=== the validation log:"
           cat validate.log
-          if grep -qE "No errors validating|validat" validate.log && ! grep -qiE "error 90|error 9[0-9]{3}|does not contain|Invalid" validate.log; then
+          # The only trustworthy success signal is altool's own line. A
+          # missing --type makes it print the usage text, which contains
+          # the word "validat" - so the failure patterns are checked FIRST.
+          if grep -qE "Error: |error 9[0-9]{3}|does not contain|Invalid|missing one or more" validate.log; then
+            echo "VALIDATE-FAILED"
+            exit 1
+          fi
+          if grep -q "No errors validating" validate.log; then
             echo "VALIDATE-CLEAN"
           else
-            echo "VALIDATE-FAILED"
+            echo "VALIDATE-FAILED - altool did not report success"
+            exit 1
           fi
