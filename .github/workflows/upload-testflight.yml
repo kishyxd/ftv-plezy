@@ -30,9 +30,29 @@ jobs:
           unzip -qo ../ftv.ipa "Payload/*"
           APP=$(find . -maxdepth 2 -name "*.app" -type d | head -1)
           echo "APP=$APP" >> "$GITHUB_ENV"
-          plutil -extract CFBundleIdentifier raw "$APP/Info.plist"
-          plutil -extract CFBundleShortVersionString raw "$APP/Info.plist"
-          plutil -extract CFBundleVersion raw "$APP/Info.plist"
+          BID=$(plutil -extract CFBundleIdentifier raw "$APP/Info.plist")
+          SHORT=$(plutil -extract CFBundleShortVersionString raw "$APP/Info.plist")
+          BUILD=$(plutil -extract CFBundleVersion raw "$APP/Info.plist")
+          NAME=$(plutil -extract CFBundleDisplayName raw "$APP/Info.plist" 2>/dev/null || echo "?")
+          echo "  the bundle id: $BID"
+          echo "  the short version: $SHORT"
+          echo "  the build: $BUILD"
+          echo "  the display name: $NAME"
+          # A build signed under the wrong bundle id lands in the wrong App
+          # Store Connect app record. That is the pile-up bug from the
+          # 2026-10-26 cleanup, so it is a hard stop here, not a warning.
+          if [ "$BID" != "com.kxvn.plezy" ]; then
+            echo "::error::the bundle id is $BID, expected com.kxvn.plezy - refusing to upload"
+            exit 1
+          fi
+          if [ "$NAME" != "FTV" ]; then
+            echo "::error::the display name is $NAME, expected FTV - refusing to upload"
+            exit 1
+          fi
+          if [ "$BUILD" != "1170" ]; then
+            echo "::error::the build is $BUILD, expected 1170 - refusing to upload"
+            exit 1
+          fi
 
       - name: Upload to App Store Connect
         run: |
