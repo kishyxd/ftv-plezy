@@ -6,6 +6,10 @@ on:
       ipa_url:
         description: "HTTPS URL of the signed .ipa"
         required: true
+      expected_build:
+        description: "The CFBundleVersion the ipa is expected to carry"
+        required: false
+        default: "1170"
 
 jobs:
   upload:
@@ -55,8 +59,8 @@ jobs:
             echo "::error::the display name is $NAME, expected FTV - refusing to upload"
             exit 1
           fi
-          if [ "$BUILD" != "1170" ]; then
-            echo "::error::the build is $BUILD, expected 1170 - refusing to upload"
+          if [ "$BUILD" != "${{ inputs.expected_build }}" ]; then
+            echo "::error::the build is $BUILD, expected ${{ inputs.expected_build }} - refusing to upload"
             exit 1
           fi
 
