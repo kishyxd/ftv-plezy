@@ -58,7 +58,7 @@ jobs:
           xcrun altool --list-apps --apple-id "$APPLE_ID" --password "$APPLE_APP_SPEC_PW" --team-id "$APPLE_TEAM_ID" 2>&1 | head -20 | tee f1.txt
 
       - name: Upload the probe results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: apple-probe
           path: /tmp/probe
