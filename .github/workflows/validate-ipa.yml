@@ -1,0 +1,74 @@
+name: Validate IPA
+
+# Runs Apple's OWN ipa validator against a signed .ipa WITHOUT uploading it.
+#
+# `xcrun altool --validate-app` performs the same icon/plist validation that
+# the upload performs, so a candidate can be checked in ~1 minute instead of
+# spending a 10-minute upload cycle to learn that Apple rejects it.
+#
+# This exists because the first 1170 upload was accepted by altool's
+# transport ("No errors uploading") and then FAILED Apple's icon validation
+# with error 90891/90893 - altool reports the upload as successful and
+# surfaces the real validation failure only afterwards, in the buildUploads
+# slot state.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ipa_url:
+        description: "HTTPS URL of the signed .ipa to validate"
+        required: true
+      tag:
+        description: "A short label for this candidate"
+        required: false
+        default: "candidate"
+
+jobs:
+  validate:
+    name: Validate the IPA
+    runs-on: macos-14
+    timeout-minutes: 20
+    steps:
+      - name: Fetch the IPA
+        run: |
+          curl -sL --retry 3 -o ftv.ipa "${{ inputs.ipa_url }}"
+          unzip -t ftv.ipa > /dev/null && echo "the zip integrity is OK"
+
+      - name: Install the ASC API key
+        run: |
+          # altool looks for AuthKey_<keyId>.p8 in the private_keys
+          # directories and builds the JWT itself - the file name has to
+          # carry the key id.
+          mkdir -p "$HOME/.private_keys"
+          KEYFILE="$HOME/.private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8"
+          echo "${{ secrets.ASC_KEY_P8 }}" | base64 --decode > "$KEYFILE"
+          chmod 600 "$KEYFILE"
+          test -s "$KEYFILE" || { echo "::error::the API key file is empty"; exit 1; }
+
+      - name: Show the bundle identity
+        run: |
+          mkdir -p probe && cd probe
+          unzip -qo ../ftv.ipa "Payload/*"
+          APP=$(find . -maxdepth 2 -name "*.app" -type d | head -1)
+          echo "  the bundle id: $(plutil -extract CFBundleIdentifier raw "$APP/Info.plist")"
+          echo "  the display name: $(plutil -extract CFBundleDisplayName raw "$APP/Info.plist")"
+          echo "  the short version: $(plutil -extract CFBundleShortVersionString raw "$APP/Info.plist")"
+          echo "  the build: $(plutil -extract CFBundleVersion raw "$APP/Info.plist")"
+          echo "  the loose icons:"
+          ls -la "$APP"/*.png 2>/dev/null | awk '{print "    "$5" bytes  "$9}' || echo "    none"
+          echo "  the icon plist:"
+          plutil -extract CFBundleIcons xml1 -o - "$APP/Info.plist" | head -40
+
+      - name: Validate the IPA
+        run: |
+          set -o pipefail
+          xcrun altool --validate-app -f ftv.ipa \
+            --apiKey "${{ secrets.ASC_KEY_ID }}" \
+            --apiIssuer "${{ secrets.ASC_ISSUER_ID }}" 2>&1 | tee validate.log || true
+          echo "=== the validation log:"
+          cat validate.log
+          if grep -qE "No errors validating|validat" validate.log && ! grep -qiE "error 90|error 9[0-9]{3}|does not contain|Invalid" validate.log; then
+            echo "VALIDATE-CLEAN"
+          else
+            echo "VALIDATE-FAILED"
+          fi
