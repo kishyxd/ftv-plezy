@@ -2,6 +2,10 @@ name: Build
 run-name: ${{ inputs.release_tag != '' && format('Release {0}', inputs.release_tag) || format('Build {0}', github.sha) }}
 
 on:
+  # A push on main starts the build. The dispatch API is not relied on:
+  # it has been refused on the FTV fork, and a push always works.
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       release_tag:

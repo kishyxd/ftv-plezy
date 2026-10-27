@@ -18,6 +18,12 @@ jobs:
           unzip -t ftv.ipa > /dev/null && echo "zip integrity OK"
           unzip -l ftv.ipa | grep "Payload/"
 
+      - name: Install the ASC API key
+        run: |
+          mkdir -p "$HOME/.private_keys"
+          echo "${{ secrets.ASC_KEY_P8 }}" | base64 --decode > "$HOME/.private_keys/AuthKey.p8"
+          chmod 600 "$HOME/.private_keys/AuthKey.p8"
+
       - name: Show bundle identity
         run: |
           mkdir -p probe && cd probe
@@ -31,11 +37,14 @@ jobs:
       - name: Upload to App Store Connect
         run: |
           set -o pipefail
+          # The app-specific password only existed in the old fork's secrets
+          # and its value cannot be read back out of GitHub, so it cannot be
+          # copied here. The ASC API key can - the .p8, the key id and the
+          # issuer id all live on the VPS. altool does JWT auth natively.
           xcrun altool --upload-app --file ftv.ipa \
             --type ios \
-            -u "${{ secrets.APPLE_ID }}" \
-            -p "${{ secrets.APPLE_APP_SPEC_PW }}" \
-            --team-id "6VS7BF6R33" 2>&1 | tee upload.log
+            --apiKey "${{ secrets.ASC_KEY_ID }}" \
+            --apiIssuer "${{ secrets.ASC_ISSUER_ID }}" 2>&1 | tee upload.log
           if ! grep -q "No errors uploading" upload.log; then
             echo "::error::altool upload failed - see log above"
             exit 1
