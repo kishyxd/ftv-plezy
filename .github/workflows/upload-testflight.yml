@@ -20,9 +20,15 @@ jobs:
 
       - name: Install the ASC API key
         run: |
+          # altool does not take a path for the key: it looks for
+          # AuthKey_<keyId>.p8 in the private_keys directories and builds the
+          # JWT itself. The file name MUST carry the key id.
           mkdir -p "$HOME/.private_keys"
-          echo "${{ secrets.ASC_KEY_P8 }}" | base64 --decode > "$HOME/.private_keys/AuthKey.p8"
-          chmod 600 "$HOME/.private_keys/AuthKey.p8"
+          KEYFILE="$HOME/.private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8"
+          echo "${{ secrets.ASC_KEY_P8 }}" | base64 --decode > "$KEYFILE"
+          chmod 600 "$KEYFILE"
+          ls -la "$HOME/.private_keys"
+          test -s "$KEYFILE" || { echo "::error::the API key file is empty"; exit 1; }
 
       - name: Show bundle identity
         run: |
